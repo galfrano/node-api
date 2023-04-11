@@ -12,6 +12,10 @@ export default (model) => ({
         const document = await model.findById(id);
         return document;
     },
+    getByCondition: async(condition) => {
+        const documents = await model.find(condition);
+        return documents;
+    },
     get: async() => {
         const documents = await model.find();
         return documents;
@@ -26,6 +30,10 @@ export default (model) => ({
     },
     deleteAll: async() => {
         const delCount = await model.deleteMany({});
+        return delCount.deletedCount;
+    },
+    deleteByCondition: async(condition) => {
+        const delCount = await model.deleteMany(condition);
         return delCount.deletedCount;
     }
 });
