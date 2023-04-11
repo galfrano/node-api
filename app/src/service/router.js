@@ -7,11 +7,11 @@ import attendees from '../collections/attendees.js';
 
 let router = Router();
 
+// user
 router.post('/api/signup', (req, res) => {
     const usersModel = model(users);
     try{
-        const document = new usersModel(req.body)
-        document.save().then((data) => res.send(data))
+        usersModel.post(req.body).then((data) => res.send(data))
     } catch(error) {
         res.status(400).send({"error": "could not add user"})
     }
@@ -19,7 +19,7 @@ router.post('/api/signup', (req, res) => {
 
 router.post('/api/login', (req, res) => {
     const usersModel = model(users);
-    const { body: { email, password } } = res;
+    const { body: { email, password } } = req;
     try{
         if(email){
             usersModel.getByCondition({email}).then((data) => {
@@ -33,13 +33,15 @@ router.post('/api/login', (req, res) => {
     }
 });
 
+// class
 router.post('/api/class', (req, res) => {
     const classesModel = model(classes);
     try{
-        const document = new classesModel(req.body)
-        document.save().then((data) => res.send(data))
+        const create_date = new Date().toISOString()
+        classesModel.post({...req.body, create_date}).then((data) => res.send(data))
     } catch(error) {
-        res.status(400).send({"error": "could not create new class"})
+        console.log(error)
+        res.status(400).send({"error": "could not create new class "})
     }
 });
 router.delete('/api/class/:id', (req, res) => {
@@ -88,6 +90,8 @@ router.get('/api/class', (req, res) => {
         res.status(400).send({"error": "could not retrieve class data"})
     }
 });
+
+// subscription
 router.delete('/api/subscribe', (req, res) => {
     const { body: { class_id, username } } = req;
     const classesModel = model(classes);
