@@ -3,92 +3,88 @@ import model from './model.js'
 import users from '../collections/users.js';
 import classes from '../collections/classes.js';
 import attendees from '../collections/attendees.js';
-//import userData from '../../users.json' assert { type: 'json' };
+import { login, sanitizeUser } from './userLogin.js';
+// import userData from '../../users.json' assert { type: 'json' };
+
+
+// do something with actual error
+const logAndSend = (errorToLog, res, error) => {
+    console.log({ "Application Exception": errorToLog });
+    res.status(400).send({ error });
+}
 
 let router = Router();
 
 // user
 router.post('/api/signup', (req, res) => {
     const usersModel = model(users);
-    try{
-        usersModel.post(req.body).then((data) => res.send(data))
-    } catch(error) {
-        res.status(400).send({"error": "could not add user"})
-    }
+    sanitizeUser(req.body)
+        .then((user) => usersModel.post(user))
+        .then((data) => res.send(data))
+        .catch((error) => logAndSend(error, res, "could not add user"));
 });
 
 router.post('/api/login', (req, res) => {
     const usersModel = model(users);
     const { body: { email, password } } = req;
+    login(email, password)
+        .then((passwordMatches) => passwordMatches(usersModel.getByCondition({ email })))
+        .then((user) => res.send(user))
+        .catch((error) => logAndSend(error, res, "UserNotFound")); //maybe show in API if the request was wrong?
+});
+
+//login example with await
+router.post('/api/login2', async(req, res) => {
+    const usersModel = model(users);
+    const { body: { email, password } } = req;
     try{
-        if(email){
-            usersModel.getByCondition({email}).then((data) => {
-                if(data.length > 0 && data[0]['password'] == password){
-                    res.send(data)
-                }
-            })
-        }
+        const passwordMatches = await login(email, password);
+        const user = await passwordMatches(usersModel.getByCondition({ email }));
+        res.send(user)
     } catch(error) {
-        res.status(400).send({"error": "UserNotFound"})
+        logAndSend(error, res, "UserNotFound")
     }
 });
+
 
 // class
 router.post('/api/class', (req, res) => {
     const classesModel = model(classes);
-    try{
-        const create_date = new Date().toISOString()
-        classesModel.post({...req.body, create_date}).then((data) => res.send(data))
-    } catch(error) {
-        console.log(error)
-        res.status(400).send({"error": "could not create new class "})
-    }
+    const create_date = new Date().toISOString();
+    classesModel.post({...req.body, create_date})
+        .then((data) => res.send(data))
+        .catch((error)=> logAndSend(error, res, "could not create new class"));
 });
+
 router.delete('/api/class/:id', (req, res) => {
     const { params: { id } } = req;
     const classesModel = model(classes);
-    try{
-        classesModel.delete(id).then((data) => {
-            res.send({
-                "acknowledged": true,
-                "deletedCount": data
-              })
-        })
-    } catch(error) {
-        res.status(400).send({"error": "could not delete class"})
-    }
+    classesModel.delete(id)
+        .then((data) => res.send({ "acknowledged": true, "deletedCount": data }))
+        .catch((error) => logAndSend(error, res, "could not delete class"));
 });
+
 router.put('/api/class/:id', (req, res) => {
     const { params: { id }, body } = req;
     const classesModel = model(classes);
-    try{
-        classesModel.put(id, body).then((data) => {
-            res.send(data)
-        })
-    } catch(error) {
-        res.status(400).send({"error": "could not update class"})
-    }
+    classesModel.put(id, body)
+        .then((data) => res.send(data))
+        .catch((error)=> logAndSend(error, res, "could not update class"));
 });
+
 router.get('/api/class/:id', (req, res) => {
     const { params: { id } } = req;
     const classesModel = model(classes);
-    try{
-        classesModel.getOne(id).then((data) => {
-            res.send(data)
-        })
-    } catch(error) {
-        res.status(400).send({"error": "could not retrieve class data"})
-    }
+    classesModel.getOne(id)
+        .then((data) => res.send(data))
+        .catch((error)=> logAndSend(error, res, "could not retrieve class data"));
 });
+
 router.get('/api/class', (req, res) => {
     const classesModel = model(classes);
-    try{
-        classesModel.get().then((data) => {
-            res.send(data)
-        })
-    } catch(error) {
-        res.status(400).send({"error": "could not retrieve class data"})
-    }
+    classesModel.get()
+        .then((data) => res.send(data))
+        .catch((error)=> logAndSend(error, res, "could not retrieve class data"));
 });
 
 // subscription
@@ -96,15 +92,10 @@ router.delete('/api/subscribe', (req, res) => {
     const { body: { class_id, username } } = req;
     const classesModel = model(classes);
     const attendeesModel = model(attendees);
-    try{
-        attendeesModel.deleteByCondition({email, class_id}).then((data) => {
-            classesModel.getOne(class_id).then((data) => 
-                res.send(data)
-            )
-        })
-    } catch(error) {
-        res.status(400).send({"error": "could not delete subscription"})
-    }
+    attendeesModel.deleteByCondition({ email, class_id })
+        .then((deleteCount) => classesModel.getOne(class_id))
+        .then((data) => res.send(data))
+        .catch((error)=> logAndSend(error, res, "could not delete subscription"));
 });
 
 router.post('/api/subscribe', (req, res) => {
@@ -112,15 +103,12 @@ router.post('/api/subscribe', (req, res) => {
     const usersModel = model(users);
     const classesModel = model(classes);
     const attendeesModel = model(attendees);
-    try{
-        usersModel.getByCondition({email}).then((userData) => {
-            const { first_name, last_name } = userData;
-            return attendeesModel.post({email, class_id, name: `${first_name} ${last_name}`.trim()})
-        }).then((data) => classesModel.getOne(class_id))
+    const userByName = (userData) => `${userData.first_name} ${userData.last_name}`.trim()
+    usersModel.getByCondition({ email: username })
+        .then((userData) => attendeesModel.post({ username, class_id, name: userByName(userData)}))
+        .then((resultNotUsed) => classesModel.getOne(class_id))
         .then((data) => res.send(data))
-    } catch(error) {
-        res.status(400).send({"error": "could not delete subscription"})
-    }
+        .catch((error)=> logAndSend(error, res, "could not add subscription")); // this error could be inaccurate
 });
 
 /*
