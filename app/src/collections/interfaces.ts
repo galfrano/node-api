@@ -1,5 +1,6 @@
 interface Collection{
     _id: string;
+    toObject: Function;
 }
 
 export interface User{
@@ -27,6 +28,7 @@ export interface ClassI{
     no_of_places: number
     created_by: string;
     created_by_name: string;
+    attendees?: string[];
 }
 
 export interface SavedClass extends Collection, ClassI{

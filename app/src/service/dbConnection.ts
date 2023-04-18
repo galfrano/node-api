@@ -8,7 +8,6 @@ const {
 } = process.env;
 
 const url = `mongodb://${U}:${W}@${H}:${P}/${D}?authSource=admin`
-console.log(url)
 export default async function dbConnection(){
     try {
       await mongoose.connect(url);

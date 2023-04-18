@@ -11,7 +11,6 @@ const makeToken = ({ _id: user_id, email}: SavedUser) =>
 export const sanitizeUser = async({ first_name, last_name, email, password }: User) => {
     if([first_name, email, password].filter((e)=> !notEmpty(e)).length == 0){
             const hashed = await bcrypt.hash(password, 10);
-            console.log({hashed})
             const lowerCase = email.toLowerCase();
             return { first_name, last_name, email: lowerCase, password: hashed }
     }
