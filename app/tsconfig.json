@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
+    "target": "es2017",
+    "module": "Node16",
     "moduleResolution": "node",
     "noImplicitAny": true,
     "removeComments": true,
@@ -9,10 +9,11 @@
     "sourceMap": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "compiled",
-    "declaration": true
+    "declaration": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
-    "src/**/*.ts"
+    "typescript/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -8,10 +8,10 @@ const {
 } = process.env;
 
 const url = `mongodb://${U}:${W}@${H}:${P}/${D}?authSource=admin`
-console.log({url})
+console.log(url)
 export default async function dbConnection(){
     try {
-      await mongoose.connect(url, { useUnifiedTopology: true, useNewUrlParser: true });
+      await mongoose.connect(url);
       console.log('MongoDB connected!!')
       return mongoose;
     } catch (err) {
