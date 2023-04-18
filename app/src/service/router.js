@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import model from './model.js'
+import model from '../service/model.js'
 import users from '../collections/users.js';
 import classes from '../collections/classes.js';
 import attendees from '../collections/attendees.js';
-import { login, sanitizeUser } from './userLogin.js';
+import { login, sanitizeUser } from '../service/userLogin.js';
+import { notEmpty } from '../utility/common.js';
 // import userData from '../../users.json' assert { type: 'json' };
 
 
@@ -27,25 +28,12 @@ router.post('/api/signup', (req, res) => {
 router.post('/api/login', (req, res) => {
     const usersModel = model(users);
     const { body: { email, password } } = req;
-    login(email, password)
-        .then((passwordMatches) => passwordMatches(usersModel.getByCondition({ email })))
-        .then((user) => res.send(user))
-        .catch((error) => logAndSend(error, res, "UserNotFound")); //maybe show in API if the request was wrong?
+    notEmpty(email) && notEmpty(password) || logAndSend('missing data', res, 'missing data');
+    usersModel.getByCondition({ email })
+        .then(([ user ]) => login3(user, password))
+        .then((userWithToken) => res.send(user))
+        .catch((error) => logAndSend(error, res, "UserNotFound"));
 });
-
-//login example with await
-router.post('/api/login2', async(req, res) => {
-    const usersModel = model(users);
-    const { body: { email, password } } = req;
-    try{
-        const passwordMatches = await login(email, password);
-        const user = await passwordMatches(usersModel.getByCondition({ email }));
-        res.send(user)
-    } catch(error) {
-        logAndSend(error, res, "UserNotFound")
-    }
-});
-
 
 // class
 router.post('/api/class', (req, res) => {
@@ -92,7 +80,7 @@ router.delete('/api/subscribe', (req, res) => {
     const { body: { class_id, username } } = req;
     const classesModel = model(classes);
     const attendeesModel = model(attendees);
-    attendeesModel.deleteByCondition({ email, class_id })
+    attendeesModel.deleteByCondition({ username, class_id })
         .then((deleteCount) => classesModel.getOne(class_id))
         .then((data) => res.send(data))
         .catch((error)=> logAndSend(error, res, "could not delete subscription"));

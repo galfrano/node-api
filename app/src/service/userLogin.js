@@ -1,19 +1,10 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { notEmpty } from '../utility/common.js'
 
+const makeToken = ({ _id: user_id, email}) =>
+    (jwt.sign({ user_id, email }, process.env.SECURITY_KEY, { expiresIn: "8h" }));
 
-const notEmpty = (someVar) => (typeof someVar == 'string' && someVar.length != 0);
-
-export const login = (email, password) => 
-    new Promise((resolve, reject) => notEmpty(email) && notEmpty(password) ?
-        resolve((data) => data.then((userData) => new Promise((resolve, reject) =>
-            (userData.length > 0) ? resolve(makeToken(userData[0]._doc)) : reject('user not found or password does not match'))))
-        : reject('missing data'));
-
-const makeToken = (user) =>
-    ({...user, token: jwt.sign({ user_id: user._id, email: user.email }, process.env.SECURITY_KEY, { expiresIn: "8h" })});
-
-//await bcrypt.compare(password, user.password)
 
 export const sanitizeUser = async({ first_name, last_name, email, password }) => {
     if([first_name, email, password].filter((e)=> !notEmpty(e)) == 0){
@@ -23,21 +14,7 @@ export const sanitizeUser = async({ first_name, last_name, email, password }) =>
     }
     throw new Error('missing data')
 }
-//    const password = await bcrypt.hash(rawPass);
 
-export const login2 = async(email, password) => {
-    if(notEmpty(email) && notEmpty(password)){
-        return (async(data) => {
-            const userData = await data;
-            if(userData.length > 0){
-                const matches = await bcrypt.compare(password, userData[0].password);
-                if(matches){
-                    return makeToken(userData[0]._doc)
-                }
-            }
-            throw new Error('no user found')
-        })
-        
-    }
-    throw new Error('missing data')
-}
+
+export const login = (user, password) => new Promise((resolve, reject) =>
+    bcrypt.compare(user.password, password, (error, result) => error || !result ? reject({error, result}) : resolve({ user, token: makeToken(user)})));
