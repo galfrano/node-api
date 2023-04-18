@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import model from './model'
-import users from '../collections/users';
-import classes from '../collections/classes';
-import attendees from '../collections/attendees';
-import { login, sanitizeUser } from './userLogin';
-import { notEmpty } from '../utility/common';
-import { SavedUser } from '../collections/interfaces';
-// import userData from '../../users.json' assert { type: 'json' };
+import model from './model.js'
+import users from '../collections/users.js';
+import classes from '../collections/classes.js';
+import attendees from '../collections/attendees.js';
+import { login, sanitizeUser, validateToken } from './userLogin.js';
+import { notEmpty } from '../utility/common.js';
+import { SavedUser } from '../collections/interfaces.js';
+import userData from '../utility/dummyUsers.js';
 
 
 // do something with actual error
@@ -18,7 +18,7 @@ const logAndSend = (errorToLog: any, res: Response, error: string) => {
 let router = Router();
 
 // user
-router.post('/api/signup', (req, res) => {
+router.post('/api/signup', (req: Request, res: Response) => {
     const usersModel = model(users);
     sanitizeUser(req.body)
         .then((user) => usersModel.post(user))
@@ -26,7 +26,7 @@ router.post('/api/signup', (req, res) => {
         .catch((error) => logAndSend(error, res, "could not add user"));
 });
 
-router.post('/api/login', (req, res) => {
+router.post('/api/login', (req: Request, res: Response) => {
     const usersModel = model(users);
     const { body: { email, password } } = req;
     notEmpty(email) && notEmpty(password) || logAndSend('missing data', res, 'missing data');
@@ -37,31 +37,37 @@ router.post('/api/login', (req, res) => {
 });
 
 // class
-router.post('/api/class', (req, res) => {
+// definition specifies username being sent so we just validate that the email in token matches username
+router.post('/api/class', (req: Request, res: Response) => {
     const classesModel = model(classes);
     const create_date = new Date().toISOString();
-    classesModel.post({...req.body, create_date})
+    validateToken(req.body.username, req)
+        .then(() => classesModel.post({...req.body, create_date}))
         .then((data) => res.send(data))
         .catch((error)=> logAndSend(error, res, "could not create new class"));
 });
 
-router.delete('/api/class/:id', (req, res) => {
+router.delete('/api/class/:id', (req: Request, res: Response) => {
     const { params: { id } } = req;
     const classesModel = model(classes);
-    classesModel.delete(id)
+    classesModel.getOne(id)
+        .then(({ created_by }) => validateToken(created_by, req))
+        .then(() => classesModel.delete(id))
         .then((data) => res.send({ "acknowledged": true, "deletedCount": data }))
         .catch((error) => logAndSend(error, res, "could not delete class"));
 });
 
-router.put('/api/class/:id', (req, res) => {
+router.put('/api/class/:id', (req: Request, res: Response) => {
     const { params: { id }, body } = req;
     const classesModel = model(classes);
-    classesModel.put(id, body)
+    classesModel.getOne(id)
+        .then(({ created_by }) => validateToken(created_by, req))
+        .then(() => classesModel.put(id, body))
         .then((data) => res.send(data))
         .catch((error)=> logAndSend(error, res, "could not update class"));
 });
 
-router.get('/api/class/:id', (req, res) => {
+router.get('/api/class/:id', (req: Request, res: Response) => {
     const { params: { id } } = req;
     const classesModel = model(classes);
     classesModel.getOne(id)
@@ -69,51 +75,51 @@ router.get('/api/class/:id', (req, res) => {
         .catch((error)=> logAndSend(error, res, "could not retrieve class data"));
 });
 
-router.get('/api/class', (req, res) => {
+router.get('/api/class', (req: Request, res: Response) => {
     const classesModel = model(classes);
     classesModel.get()
         .then((data) => res.send(data))
         .catch((error)=> logAndSend(error, res, "could not retrieve class data"));
 });
 
-// subscription
-router.delete('/api/subscribe', (req, res) => {
+// subscription (only by user)
+router.delete('/api/subscribe', (req: Request, res: Response) => {
     const { body: { class_id, username } } = req;
     const classesModel = model(classes);
     const attendeesModel = model(attendees);
-    attendeesModel.deleteByCondition({ username, class_id })
-        .then((deleteCount) => classesModel.getOne(class_id))
+    validateToken(username, req)
+        .then(() => attendeesModel.deleteByCondition({ username, class_id }))
+        .then(() => classesModel.getOne(class_id))
         .then((data) => res.send(data))
         .catch((error)=> logAndSend(error, res, "could not delete subscription"));
 });
 
-router.post('/api/subscribe', (req, res) => {
+router.post('/api/subscribe', (req: Request, res: Response) => {
     const { body: { class_id, username } } = req;
     const usersModel = model(users);
     const classesModel = model(classes);
     const attendeesModel = model(attendees);
     const userByName = (userData: SavedUser) => `${userData.first_name} ${userData.last_name}`.trim()
-    usersModel.getByCondition({ email: username })
+    validateToken(username, req)
+        .then(()=> usersModel.getByCondition({ email: username }))
         .then((userData) => attendeesModel.post({ username, class_id, name: userByName(userData)}))
-        .then((resultNotUsed) => classesModel.getOne(class_id))
+        .then(() => classesModel.getOne(class_id))
         .then((data) => res.send(data))
         .catch((error)=> logAndSend(error, res, "could not add subscription")); // this error could be inaccurate
 });
 
-/*
-router.get('/api/users', (req, res) => {
+
+router.get('/api/users', (req: Request, res: Response) => {
     const usersModel = model(users);
     usersModel.get().then((data) => 
         res.send(data)
     );
 });
 
-router.get('/api/create-users', (req, res) => {
+router.get('/api/create-users', (req: Request, res: Response) => {
     const usersModel = model(users);
-    usersModel.postMany(userData).then((data) => 
-        res.send(data)
-    );
+    usersModel.postMany(userData).then((data) => res.send(data));
 });
-*/
+
 
 export default router

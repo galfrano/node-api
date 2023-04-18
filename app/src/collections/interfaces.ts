@@ -32,3 +32,11 @@ export interface ClassI{
 export interface SavedClass extends Collection, ClassI{
     created_date: Date;
 }
+
+export interface JwtPayload {
+    user_id: string;
+    email: string;
+    iat: number;
+    exp: number;
+}
+  

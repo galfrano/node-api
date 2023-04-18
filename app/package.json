@@ -6,11 +6,11 @@
   "repository": "git@github.com:galfrano/node-api.git",
   "author": "Gabriel Buentello <galfrano@gmail.com>",
   "license": "MIT",
-  "private": null,
+  "private": false,
   "type": "module",
   "scripts": {
     "compile": "tsc -p .",
-    "start": "node dist/index.js"
+    "start": "node compiled/index.js"
   },
   "dependencies": {
     "@types/bcrypt": "^5.0.0",
